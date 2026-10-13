@@ -377,13 +377,13 @@
   <!-- Password Modal -->
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal">
-      <h3>輸入密碼下載</h3>
+      <h3 id="modalTitle">輸入密碼</h3>
       <p id="modalFileName">樂譜檔名</p>
-      <input type="password" id="passwordInput" class="password-input" placeholder="請輸入下載密碼">
+      <input type="password" id="passwordInput" class="password-input" placeholder="請輸入密碼">
       <div class="error-msg" id="errorMsg">密碼錯誤，請再試一次</div>
       <div class="modal-buttons">
         <button class="modal-btn btn-cancel" onclick="closeModal()">取消</button>
-        <button class="modal-btn btn-confirm" onclick="verifyAndDownload()">驗證並下載</button>
+        <button class="modal-btn btn-confirm" id="modalConfirmBtn" onclick="verifyAndExecute()">確認</button>
       </div>
     </div>
   </div>
@@ -396,12 +396,13 @@
       GITHUB_USERNAME: 'hkcccly', // 改為你的 GitHub 帳號
       GITHUB_REPO: 'hymn-library',           // 改為你的 Repository 名稱
       PDF_FOLDER: 'sheets',                   // 放置 PDF 的資料夾名稱
-      DOWNLOAD_PASSWORD: '26923386'           // 解鎖下載密碼
+      DOWNLOAD_PASSWORD: '26923386'           // 解鎖密碼（檢視與下載通用）
     };
 
     let hymnsData = [];
     let selectedPdfUrl = '';
     let selectedFileName = '';
+    let currentAction = 'preview'; // 'preview' 或 'download'
 
     // --------------------------------------------------
     // 1. 從 GitHub API 自動讀取 sheets/ 資料夾中的 PDF
@@ -445,7 +446,7 @@
     }
 
     // --------------------------------------------------
-    // 2. 渲染詩歌卡片列表（包含「檢視」與「下載」按鈕）
+    // 2. 渲染詩歌卡片列表
     // --------------------------------------------------
     function renderHymns(list) {
       const container = document.getElementById('hymnList');
@@ -470,12 +471,12 @@
             <span class="key-badge">Key: ${escapeHtml(item.key)}</span>
           </div>
           <div class="btn-group">
-            <!-- 線上檢視按鈕（直接於新分頁開啟 PDF） -->
-            <button class="action-btn view-btn" onclick="openPreview('${item.downloadUrl}')">
+            <!-- 檢視按鈕（需要密碼） -->
+            <button class="action-btn view-btn" onclick="openModal('preview', '${item.downloadUrl}', '${escapeHtml(item.title)}', '${item.fileName}')">
               <i class="fa-regular fa-eye"></i> 檢視
             </button>
-            <!-- 下載按鈕（需輸入密碼） -->
-            <button class="action-btn download-btn" onclick="openModal('${item.downloadUrl}', '${escapeHtml(item.title)}', '${item.fileName}')">
+            <!-- 下載按鈕（需要密碼） -->
+            <button class="action-btn download-btn" onclick="openModal('download', '${item.downloadUrl}', '${escapeHtml(item.title)}', '${item.fileName}')">
               <i class="fa-solid fa-arrow-down-to-line"></i> 下載
             </button>
           </div>
@@ -497,18 +498,24 @@
     });
 
     // --------------------------------------------------
-    // 4. 功能：線上檢視 PDF (預覽)
+    // 4. 開啟密碼彈窗 (統一處理檢視與下載)
     // --------------------------------------------------
-    function openPreview(url) {
-      window.open(url, '_blank');
-    }
-
-    // --------------------------------------------------
-    // 5. 功能：密碼驗證與直接下載 PDF
-    // --------------------------------------------------
-    function openModal(url, title, fileName) {
+    function openModal(action, url, title, fileName) {
+      currentAction = action;
       selectedPdfUrl = url;
       selectedFileName = fileName || `${title}.pdf`;
+      
+      const modalTitle = document.getElementById('modalTitle');
+      const confirmBtn = document.getElementById('modalConfirmBtn');
+      
+      if (action === 'preview') {
+        modalTitle.innerText = '輸入密碼以線上檢視';
+        confirmBtn.innerText = '開啟檢視';
+      } else {
+        modalTitle.innerText = '輸入密碼以下載檔案';
+        confirmBtn.innerText = '確認下載';
+      }
+
       document.getElementById('modalFileName').innerText = title;
       document.getElementById('passwordInput').value = '';
       document.getElementById('errorMsg').style.display = 'none';
@@ -520,34 +527,43 @@
       document.getElementById('modalOverlay').classList.remove('active');
     }
 
-    async function verifyAndDownload() {
+    // --------------------------------------------------
+    // 5. 驗證密碼並執行對應操作（檢視 / 下載）
+    // --------------------------------------------------
+    async function verifyAndExecute() {
       const pwd = document.getElementById('passwordInput').value;
       if (pwd === CONFIG.DOWNLOAD_PASSWORD) {
-        // 密碼正確，觸發真正下載（非僅瀏覽器開啟）
-        try {
-          const response = await fetch(selectedPdfUrl);
-          const blob = await response.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          
-          const a = document.createElement('a');
-          a.href = blobUrl;
-          a.download = selectedFileName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(blobUrl);
-        } catch (err) {
-          // 若 fetch 受到跨網域限制，則備用開啟新分頁
-          window.open(selectedPdfUrl, '_blank');
-        }
         closeModal();
+        
+        if (currentAction === 'preview') {
+          // 執行檢視：使用 Google Viewer 開啟，防範強制下載
+          const previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(selectedPdfUrl)}&embedded=true`;
+          window.open(previewUrl, '_blank');
+        } else {
+          // 執行下載：獲取 Blob 檔案並觸發儲存
+          try {
+            const response = await fetch(selectedPdfUrl);
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = selectedFileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+          } catch (err) {
+            window.open(selectedPdfUrl, '_blank');
+          }
+        }
       } else {
         document.getElementById('errorMsg').style.display = 'block';
       }
     }
 
     document.getElementById('passwordInput').addEventListener('keyup', (e) => {
-      if (e.key === 'Enter') verifyAndDownload();
+      if (e.key === 'Enter') verifyAndExecute();
     });
 
     function escapeHtml(str) {
