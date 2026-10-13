@@ -2,9 +2,11 @@
 <html lang="zh-HK">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>詩歌檢索庫 | Hymn Library</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- 載入 Mozilla PDF.js 用於跨平台穩定預覽 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
     /* Apple SF Pro Aesthetic Global Styling */
     :root {
@@ -21,7 +23,6 @@
       --shadow-modal: 0 20px 40px rgba(0, 0, 0, 0.15);
       --radius-lg: 20px;
       --radius-md: 12px;
-      --radius-sm: 8px;
     }
 
     * {
@@ -35,7 +36,7 @@
     body {
       background-color: var(--bg-color);
       color: var(--text-main);
-      padding: 40px 20px 80px;
+      padding: 30px 16px 80px;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -50,14 +51,13 @@
     /* Header Styling */
     header {
       text-align: center;
-      margin-bottom: 36px;
+      margin-bottom: 28px;
     }
 
     header h1 {
-      font-size: 38px;
+      font-size: 32px;
       font-weight: 700;
-      letter-spacing: -0.015em;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       background: linear-gradient(135deg, #1d1d1f 0%, #434344 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -65,72 +65,57 @@
 
     header p {
       color: var(--text-secondary);
-      font-size: 16px;
-      font-weight: 400;
+      font-size: 15px;
     }
 
     /* Search Bar Styling */
     .search-wrapper {
       position: sticky;
-      top: 20px;
+      top: 15px;
       z-index: 10;
-      margin-bottom: 30px;
+      margin-bottom: 24px;
     }
 
     .search-box {
       display: flex;
       align-items: center;
-      background: rgba(255, 255, 255, 0.85);
+      background: rgba(255, 255, 255, 0.88);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid var(--card-border);
       border-radius: 16px;
-      padding: 12px 20px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
-      transition: all 0.25s ease;
-    }
-
-    .search-box:focus-within {
-      box-shadow: 0 12px 30px rgba(0, 113, 227, 0.15);
-      border-color: rgba(0, 113, 227, 0.4);
-      background: #ffffff;
+      padding: 12px 18px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
     }
 
     .search-box i {
       color: var(--text-secondary);
       font-size: 18px;
-      margin-right: 14px;
+      margin-right: 12px;
     }
 
     .search-box input {
       border: none;
       background: transparent;
       outline: none;
-      font-size: 17px;
+      font-size: 16px;
       width: 100%;
       color: var(--text-main);
     }
 
-    .search-box input::placeholder {
-      color: #a1a1a6;
-    }
-
-    /* Filter & Status Bar */
+    /* Status Bar */
     .status-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      padding: 0 8px;
-      font-size: 14px;
+      margin-bottom: 16px;
+      padding: 0 6px;
+      font-size: 13px;
       color: var(--text-secondary);
     }
 
     /* Hymn Cards Grid */
     .hymn-list {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 16px;
     }
 
     .hymn-card {
@@ -139,63 +124,48 @@
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid var(--card-border);
       border-radius: var(--radius-lg);
-      padding: 22px;
+      padding: 20px;
       box-shadow: var(--shadow-soft);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      transition: transform 0.25s ease, box-shadow 0.25s ease;
-    }
-
-    .hymn-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 16px 35px rgba(0, 0, 0, 0.08);
-    }
-
-    .card-top {
-      margin-bottom: 16px;
     }
 
     .artist-tag {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       color: var(--accent-color);
-      letter-spacing: 0.03em;
       text-transform: uppercase;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       display: block;
     }
 
     .hymn-title {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 600;
-      color: var(--text-main);
-      line-height: 1.3;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .key-badge {
       display: inline-flex;
-      align-items: center;
       background: rgba(0, 113, 227, 0.08);
       color: var(--accent-color);
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
-      padding: 4px 10px;
+      padding: 4px 8px;
       border-radius: 6px;
+      margin-bottom: 14px;
     }
 
-    /* 按鈕群組雙欄樣式 */
     .btn-group {
       display: flex;
       gap: 8px;
-      margin-top: 10px;
     }
 
     .action-btn {
       flex: 1;
       border: none;
-      padding: 10px 12px;
+      padding: 10px 8px;
       border-radius: var(--radius-md);
       font-size: 13px;
       font-weight: 500;
@@ -204,8 +174,6 @@
       align-items: center;
       justify-content: center;
       gap: 6px;
-      transition: all 0.2s ease;
-      text-decoration: none;
     }
 
     .view-btn {
@@ -213,29 +181,21 @@
       color: var(--text-main);
     }
 
-    .view-btn:hover {
-      background: var(--secondary-btn-hover);
-    }
-
     .download-btn {
       background: var(--accent-color);
       color: white;
     }
 
-    .download-btn:hover {
-      background: var(--accent-hover);
-    }
-
-    /* Modal Dialog */
+    /* Modal Styling */
     .modal-overlay {
       position: fixed;
       top: 0;
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(0, 0, 0, 0.3);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -252,32 +212,12 @@
 
     .modal {
       background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(25px);
-      -webkit-backdrop-filter: blur(25px);
       border-radius: 20px;
-      padding: 28px;
+      padding: 24px;
       width: 90%;
-      max-width: 360px;
-      box-shadow: var(--shadow-modal);
+      max-width: 340px;
       text-align: center;
-      transform: scale(0.95);
-      transition: transform 0.25s ease;
-    }
-
-    .modal-overlay.active .modal {
-      transform: scale(1);
-    }
-
-    .modal h3 {
-      font-size: 19px;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-
-    .modal p {
-      font-size: 14px;
-      color: var(--text-secondary);
-      margin-bottom: 20px;
+      box-shadow: var(--shadow-modal);
     }
 
     .password-input {
@@ -287,17 +227,13 @@
       border-radius: var(--radius-md);
       font-size: 16px;
       text-align: center;
-      margin-bottom: 16px;
+      margin: 14px 0;
       outline: none;
-    }
-
-    .password-input:focus {
-      border-color: var(--accent-color);
     }
 
     .modal-buttons {
       display: flex;
-      gap: 10px;
+      gap: 8px;
     }
 
     .modal-btn {
@@ -305,30 +241,74 @@
       padding: 10px;
       border-radius: var(--radius-md);
       font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
       border: none;
+      cursor: pointer;
     }
 
-    .btn-cancel {
-      background: #e5e5ea;
-      color: var(--text-main);
+    .btn-cancel { background: #e5e5ea; color: var(--text-main); }
+    .btn-confirm { background: var(--accent-color); color: white; }
+    .error-msg { color: #ff3b30; font-size: 12px; display: none; margin-bottom: 10px; }
+
+    /* PDF Viewer Modal (Apple/Android 跨平台預覽專用) */
+    .pdf-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 200;
     }
 
-    .btn-confirm {
-      background: var(--accent-color);
+    .pdf-modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .pdf-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 20px;
+      background: rgba(255, 255, 255, 0.1);
       color: white;
     }
 
-    .error-msg {
-      color: #ff3b30;
-      font-size: 12px;
-      margin-top: -10px;
-      margin-bottom: 12px;
-      display: none;
+    .pdf-toolbar button {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
     }
 
-    /* Loading & Empty State */
+    .pdf-container {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 20px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    canvas {
+      max-width: 100%;
+      height: auto !important;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      border-radius: 8px;
+      background: white;
+    }
+
     .loading-state, .empty-state {
       text-align: center;
       padding: 60px 20px;
@@ -342,9 +322,7 @@
       animation: spin 1s linear infinite;
     }
 
-    @keyframes spin {
-      100% { transform: rotate(360deg); }
-    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -358,12 +336,12 @@
     <div class="search-wrapper">
       <div class="search-box">
         <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="text" id="searchInput" placeholder="搜尋歌名、音樂機構、Key (如: 讚美之泉 / G)...">
+        <input type="text" id="searchInput" placeholder="搜尋歌名、音樂機構、Key...">
       </div>
     </div>
 
     <div class="status-bar">
-      <span id="countText">正在連接 GitHub 自動讀取歌譜...</span>
+      <span id="countText">正在讀取歌譜...</span>
     </div>
 
     <div class="hymn-list" id="hymnList">
@@ -377,8 +355,8 @@
   <!-- Password Modal -->
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal">
-      <h3 id="modalTitle">輸入密碼</h3>
-      <p id="modalFileName">樂譜檔名</p>
+      <h3 id="modalTitle" style="font-size:18px;">輸入密碼</h3>
+      <p id="modalFileName" style="font-size:13px; color:var(--text-secondary); margin-top:4px;">樂譜檔名</p>
       <input type="password" id="passwordInput" class="password-input" placeholder="請輸入密碼">
       <div class="error-msg" id="errorMsg">密碼錯誤，請再試一次</div>
       <div class="modal-buttons">
@@ -388,7 +366,26 @@
     </div>
   </div>
 
+  <!-- PDF Preview Modal (跨平台網頁內嵌閱讀器) -->
+  <div class="pdf-modal-overlay" id="pdfModalOverlay">
+    <div class="pdf-toolbar">
+      <span id="pdfTitleDisplay" style="font-size: 14px; font-weight: 600;">樂譜預覽</span>
+      <div>
+        <button onclick="changePage(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+        <span id="pageNumDisplay" style="margin: 0 8px; font-size:13px;">1 / 1</span>
+        <button onclick="changePage(1)"><i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="closePdfViewer()" style="margin-left: 12px; background: #ff3b30;">關閉</button>
+      </div>
+    </div>
+    <div class="pdf-container">
+      <canvas id="pdfCanvas"></canvas>
+    </div>
+  </div>
+
   <script>
+    // PDF.js 設定
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
     // --------------------------------------------------
     // ⚙️ 設定區（請修改為你的 GitHub 資訊）
     // --------------------------------------------------
@@ -396,17 +393,18 @@
       GITHUB_USERNAME: 'hkcccly', // 改為你的 GitHub 帳號
       GITHUB_REPO: 'hymn-library',           // 改為你的 Repository 名稱
       PDF_FOLDER: 'sheets',                   // 放置 PDF 的資料夾名稱
-      DOWNLOAD_PASSWORD: '26923386'           // 解鎖密碼（檢視與下載通用）
+      DOWNLOAD_PASSWORD: '26923386'           // 解鎖密碼
     };
 
     let hymnsData = [];
     let selectedPdfUrl = '';
     let selectedFileName = '';
-    let currentAction = 'preview'; // 'preview' 或 'download'
+    let currentAction = 'preview';
 
-    // --------------------------------------------------
-    // 1. 從 GitHub API 自動讀取 sheets/ 資料夾中的 PDF
-    // --------------------------------------------------
+    // PDF 渲染變數
+    let pdfDoc = null;
+    let pageNum = 1;
+
     async function fetchHymnsFromGitHub() {
       const apiUrl = `https://api.github.com/repos/${CONFIG.GITHUB_USERNAME}/${CONFIG.GITHUB_REPO}/contents/${CONFIG.PDF_FOLDER}`;
       
@@ -445,37 +443,26 @@
       }
     }
 
-    // --------------------------------------------------
-    // 2. 渲染詩歌卡片列表
-    // --------------------------------------------------
     function renderHymns(list) {
       const container = document.getElementById('hymnList');
-      const countText = document.getElementById('countText');
-
-      countText.innerText = `共找到 ${list.length} 首詩歌譜`;
+      document.getElementById('countText').innerText = `共找到 ${list.length} 首詩歌譜`;
 
       if (list.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <p>沒有找到符合關鍵字的詩歌譜</p>
-          </div>
-        `;
+        container.innerHTML = `<div class="empty-state"><p>沒有找到符合關鍵字的詩歌譜</p></div>`;
         return;
       }
 
       container.innerHTML = list.map(item => `
         <div class="hymn-card">
-          <div class="card-top">
+          <div>
             <span class="artist-tag">${escapeHtml(item.artist)}</span>
             <div class="hymn-title">${escapeHtml(item.title)}</div>
             <span class="key-badge">Key: ${escapeHtml(item.key)}</span>
           </div>
           <div class="btn-group">
-            <!-- 檢視按鈕（需要密碼） -->
             <button class="action-btn view-btn" onclick="openModal('preview', '${item.downloadUrl}', '${escapeHtml(item.title)}', '${item.fileName}')">
               <i class="fa-regular fa-eye"></i> 檢視
             </button>
-            <!-- 下載按鈕（需要密碼） -->
             <button class="action-btn download-btn" onclick="openModal('download', '${item.downloadUrl}', '${escapeHtml(item.title)}', '${item.fileName}')">
               <i class="fa-solid fa-arrow-down-to-line"></i> 下載
             </button>
@@ -484,9 +471,6 @@
       `).join('');
     }
 
-    // --------------------------------------------------
-    // 3. 搜尋過濾（支援歌名、機構、Key）
-    // --------------------------------------------------
     document.getElementById('searchInput').addEventListener('input', (e) => {
       const query = e.target.value.toLowerCase().trim();
       const filtered = hymnsData.filter(item => 
@@ -497,25 +481,13 @@
       renderHymns(filtered);
     });
 
-    // --------------------------------------------------
-    // 4. 開啟密碼彈窗 (統一處理檢視與下載)
-    // --------------------------------------------------
     function openModal(action, url, title, fileName) {
       currentAction = action;
       selectedPdfUrl = url;
       selectedFileName = fileName || `${title}.pdf`;
       
-      const modalTitle = document.getElementById('modalTitle');
-      const confirmBtn = document.getElementById('modalConfirmBtn');
-      
-      if (action === 'preview') {
-        modalTitle.innerText = '輸入密碼以線上檢視';
-        confirmBtn.innerText = '開啟檢視';
-      } else {
-        modalTitle.innerText = '輸入密碼以下載檔案';
-        confirmBtn.innerText = '確認下載';
-      }
-
+      document.getElementById('modalTitle').innerText = action === 'preview' ? '輸入密碼以線上檢視' : '輸入密碼以下載檔案';
+      document.getElementById('modalConfirmBtn').innerText = action === 'preview' ? '開啟檢視' : '確認下載';
       document.getElementById('modalFileName').innerText = title;
       document.getElementById('passwordInput').value = '';
       document.getElementById('errorMsg').style.display = 'none';
@@ -527,25 +499,19 @@
       document.getElementById('modalOverlay').classList.remove('active');
     }
 
-    // --------------------------------------------------
-    // 5. 驗證密碼並執行對應操作（檢視 / 下載）
-    // --------------------------------------------------
     async function verifyAndExecute() {
       const pwd = document.getElementById('passwordInput').value;
       if (pwd === CONFIG.DOWNLOAD_PASSWORD) {
         closeModal();
-        
         if (currentAction === 'preview') {
-          // 執行檢視：使用 Google Viewer 開啟，防範強制下載
-          const previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(selectedPdfUrl)}&embedded=true`;
-          window.open(previewUrl, '_blank');
+          // 呼叫跨平台 PDF.js 樂譜檢視器，絕不觸發下載
+          loadPdfInViewer(selectedPdfUrl, selectedFileName);
         } else {
-          // 執行下載：獲取 Blob 檔案並觸發儲存
+          // 下載檔案邏輯
           try {
             const response = await fetch(selectedPdfUrl);
             const blob = await response.blob();
             const blobUrl = URL.createObjectURL(blob);
-            
             const a = document.createElement('a');
             a.href = blobUrl;
             a.download = selectedFileName;
@@ -562,6 +528,49 @@
       }
     }
 
+    // --------------------------------------------------
+    // PDF 跨平台檢視器邏輯 (PDF.js)
+    // --------------------------------------------------
+    async function loadPdfInViewer(url, title) {
+      document.getElementById('pdfTitleDisplay').innerText = title;
+      document.getElementById('pdfModalOverlay').classList.add('active');
+
+      try {
+        pdfDoc = await pdfjsLib.getDocument(url).promise;
+        pageNum = 1;
+        renderPdfPage(pageNum);
+      } catch (error) {
+        alert('樂譜載入失敗，請稍後再試');
+        closePdfViewer();
+      }
+    }
+
+    async function renderPdfPage(num) {
+      const page = await pdfDoc.getPage(num);
+      const canvas = document.getElementById('pdfCanvas');
+      const ctx = canvas.getContext('2d');
+
+      // 依裝置螢幕寬度自動調整樂譜比例 (支援手機)
+      const viewport = page.getViewport({ scale: 1.5 });
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+      document.getElementById('pageNumDisplay').innerText = `${num} / ${pdfDoc.numPages}`;
+    }
+
+    function changePage(delta) {
+      if (!pdfDoc) return;
+      if (pageNum + delta >= 1 && pageNum + delta <= pdfDoc.numPages) {
+        pageNum += delta;
+        renderPdfPage(pageNum);
+      }
+    }
+
+    function closePdfViewer() {
+      document.getElementById('pdfModalOverlay').classList.remove('active');
+    }
+
     document.getElementById('passwordInput').addEventListener('keyup', (e) => {
       if (e.key === 'Enter') verifyAndExecute();
     });
@@ -572,7 +581,6 @@
       });
     }
 
-    // 頁面載入時自動執行
     fetchHymnsFromGitHub();
   </script>
 </body>
