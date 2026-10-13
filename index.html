@@ -89,7 +89,7 @@
     .search-box input { border: none; background: transparent; outline: none; font-size: 16px; width: 100%; color: var(--text-main); }
     .clear-btn { color: var(--text-secondary); font-size: 16px; cursor: pointer; display: none; padding: 2px 6px; }
 
-    /* 🏷️ 三行分類篩選標籤排版 */
+    /* 🏷️ 三行分類篩選容器 */
     .filter-container {
       display: flex;
       flex-direction: column;
@@ -219,7 +219,7 @@
   <div class="container">
     <header>
       <h1>詩歌檢索庫</h1>
-     
+      
     </header>
 
     <div class="search-wrapper">
@@ -298,7 +298,7 @@
       GITHUB_USERNAME: 'hkcccly',   
       GITHUB_REPO: 'hymn-library',             
       PDF_FOLDER: 'sheets',                     
-      DOWNLOAD_PASSWORD: '26923386',             
+      DOWNLOAD_PASSWORD: '3386',             
       GOOGLE_SHEET_CSV_URL: 'https://docs.google.com/spreadsheets/d/1OmrNov8LfPHfW23VBFASrwtrwnM9IH355sJ3hBHelEo/export?format=csv'
     };
 
@@ -360,7 +360,7 @@
     }
 
     async function fetchGoogleSheetStats(csvUrl) {
-      if (!csvUrl || csvUrl.includes('YOUR_SHEET_ID')) return {};
+      if (!csvUrl) return {};
       try {
         const response = await fetch(csvUrl);
         const text = await response.text();
@@ -415,15 +415,16 @@
       // 第 3 行：快速與收藏
       const actionContainer = document.getElementById('actionPills');
       actionContainer.innerHTML = `
-        <button class="pill ${currentFilter === 'ALL' ? 'active' : ''}" onclick="setFilter('ALL', this)"><i class="fa-solid fa-border-all"></i> 全部</button>
-        <button class="pill ${currentFilter === 'FAV' ? 'active' : ''}" onclick="setFilter('FAV', this)"><i class="fa-solid fa-heart" style="color:#ff3b30;"></i> 已收藏</button>
+        <button class="pill ${currentFilter === 'ALL' ? 'active' : ''}" onclick="setFilter('ALL')"><i class="fa-solid fa-border-all"></i> 全部</button>
+        <button class="pill ${currentFilter === 'FAV' ? 'active' : ''}" onclick="setFilter('FAV')"><i class="fa-solid fa-heart" style="color:#ff3b30;"></i> 已收藏</button>
       `;
 
       // 第 2 行：Key（調性）
       const keyContainer = document.getElementById('keyPills');
       let keyHtml = '';
       keys.forEach(k => {
-        keyHtml += `<button class="pill ${currentFilter === 'KEY:' + k ? 'active' : ''}" onclick="setFilter('KEY:${k}', this)">Key: ${k}</button>`;
+        const filterKey = 'KEY:' + k;
+        keyHtml += `<button class="pill ${currentFilter === filterKey ? 'active' : ''}" onclick="setFilter('${filterKey}')">Key: ${k}</button>`;
       });
       keyContainer.innerHTML = keyHtml;
 
@@ -431,15 +432,20 @@
       const artistContainer = document.getElementById('artistPills');
       let artistHtml = '';
       artists.forEach(a => {
-        artistHtml += `<button class="pill ${currentFilter === 'ARTIST:' + a ? 'active' : ''}" onclick="setFilter('ARTIST:${a}', this)">${escapeHtml(a)}</button>`;
+        const filterArtist = 'ARTIST:' + a;
+        artistHtml += `<button class="pill ${currentFilter === filterArtist ? 'active' : ''}" onclick="setFilter('${filterArtist}')">${escapeHtml(a)}</button>`;
       });
       artistContainer.innerHTML = artistHtml;
     }
 
-    function setFilter(filterType, element) {
-      currentFilter = filterType;
-      document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
-      element.classList.add('active');
+    // 🔄 點擊標籤邏輯：再次點擊即取消（切回 ALL）
+    function setFilter(filterType) {
+      if (currentFilter === filterType && filterType !== 'ALL') {
+        currentFilter = 'ALL';
+      } else {
+        currentFilter = filterType;
+      }
+      generateFilterPills();
       renderHymns();
     }
 
