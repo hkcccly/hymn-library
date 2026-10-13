@@ -89,18 +89,69 @@
     .search-box input { border: none; background: transparent; outline: none; font-size: 16px; width: 100%; color: var(--text-main); }
     .clear-btn { color: var(--text-secondary); font-size: 16px; cursor: pointer; display: none; padding: 2px 6px; }
 
+    /* 🏷️ 三行分類篩選標籤排版 */
+    .filter-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 14px 16px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .filter-row-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .filter-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      width: 36px;
+      flex-shrink: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
     .filter-pills-scroll {
-      display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 16px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 2px;
       scrollbar-width: none;
+      -ms-overflow-style: none;
+      flex: 1;
     }
+
     .filter-pills-scroll::-webkit-scrollbar { display: none; }
+
     .pill {
-      background: var(--pill-bg); border: 1px solid var(--pill-border); color: var(--pill-text);
-      padding: 7px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; white-space: nowrap;
-      cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
-      backdrop-filter: blur(10px);
+      background: var(--pill-bg);
+      border: 1px solid var(--pill-border);
+      color: var(--pill-text);
+      padding: 6px 12px;
+      border-radius: 18px;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
     }
-    .pill.active { background: var(--pill-active-bg); color: var(--pill-active-text); border-color: var(--pill-active-bg); }
+
+    .pill.active {
+      background: var(--pill-active-bg);
+      color: var(--pill-active-text);
+      border-color: var(--pill-active-bg);
+    }
 
     .status-bar { margin-bottom: 16px; padding: 0 6px; font-size: 13px; color: var(--text-secondary); }
 
@@ -168,7 +219,7 @@
   <div class="container">
     <header>
       <h1>詩歌檢索庫</h1>
-      
+     
     </header>
 
     <div class="search-wrapper">
@@ -179,9 +230,23 @@
       </div>
     </div>
 
-    <div class="filter-pills-scroll" id="filterPills">
-      <button class="pill active" onclick="setFilter('ALL', this)"><i class="fa-solid fa-border-all"></i> 全部</button>
-      <button class="pill" onclick="setFilter('FAV', this)"><i class="fa-solid fa-heart" style="color:#ff3b30;"></i> 已收藏</button>
+    <!-- 🏷️ 三行分類篩選容器 -->
+    <div class="filter-container">
+      <!-- 第 1 行：音樂機構 -->
+      <div class="filter-row-group">
+        <span class="filter-label">機構</span>
+        <div class="filter-pills-scroll" id="artistPills"></div>
+      </div>
+      <!-- 第 2 行：Key 調性 -->
+      <div class="filter-row-group">
+        <span class="filter-label">調性</span>
+        <div class="filter-pills-scroll" id="keyPills"></div>
+      </div>
+      <!-- 第 3 行：快速與收藏 -->
+      <div class="filter-row-group">
+        <span class="filter-label">快速</span>
+        <div class="filter-pills-scroll" id="actionPills"></div>
+      </div>
     </div>
 
     <div class="status-bar">
@@ -234,7 +299,7 @@
       GITHUB_REPO: 'hymn-library',             
       PDF_FOLDER: 'sheets',                     
       DOWNLOAD_PASSWORD: '26923386',             
-      GOOGLE_SHEET_CSV_URL: 'https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/export?format=csv'
+      GOOGLE_SHEET_CSV_URL: 'https://docs.google.com/spreadsheets/d/1OmrNov8LfPHfW23VBFASrwtrwnM9IH355sJ3hBHelEo/export?format=csv'
     };
 
     let hymnsData = [];
@@ -246,11 +311,11 @@
     let pdfDoc = null;
     let pageNum = 1;
 
-    // 🔑 智慧名稱清洗函式：將空格、標點符號、大小寫全部標準化，確保 100% 準確對應
+    // 🔑 智慧名稱清洗函式
     function normalizeTitle(str) {
       if (!str) return '';
       return str.toLowerCase()
-                .replace(/[\s\u3000\-_.,()（）「」『』]/g, '') // 移除所有空格、全形空格與常見標點
+                .replace(/[\s\u3000\-_.,()（）「」『』]/g, '')
                 .trim();
     }
 
@@ -264,7 +329,6 @@
           const parts = rawName.split('_');
           const title = parts[1] || rawName;
           
-          // 使用清洗後的標題進行 100% 精準對應
           const cleanTitleKey = normalizeTitle(title);
           const stat = sheetStats[cleanTitleKey] || { count: 0, lastDate: '未曾記錄' };
 
@@ -303,22 +367,26 @@
         const rows = text.split('\n').map(r => r.split(','));
         const stats = {};
 
-        // 從第 1 行開始讀取（假設第 0 行為標題欄位：日期, 歌名）
         for (let i = 1; i < rows.length; i++) {
           const cols = rows[i];
-          if (cols.length >= 2) {
+          if (cols.length >= 1) {
             const date = cols[0] ? cols[0].trim().replace(/['"]/g, '') : '';
-            const rawTitle = cols[1] ? cols[1].trim().replace(/['"]/g, '') : '';
-            if (!rawTitle) continue;
+            if (!date) continue;
 
-            const titleKey = normalizeTitle(rawTitle);
+            // 從 C 欄（索引 2）開始掃描所有歌名
+            for (let j = 2; j < cols.length; j++) {
+              const rawTitle = cols[j] ? cols[j].trim().replace(/['"]/g, '') : '';
+              if (!rawTitle) continue;
 
-            if (!stats[titleKey]) {
-              stats[titleKey] = { count: 0, lastDate: date };
-            }
-            stats[titleKey].count++;
-            if (date > stats[titleKey].lastDate) {
-              stats[titleKey].lastDate = date;
+              const titleKey = normalizeTitle(rawTitle);
+
+              if (!stats[titleKey]) {
+                stats[titleKey] = { count: 0, lastDate: date };
+              }
+              stats[titleKey].count++;
+              if (date > stats[titleKey].lastDate) {
+                stats[titleKey].lastDate = date;
+              }
             }
           }
         }
@@ -337,25 +405,35 @@
       return files.filter(file => file.name.endsWith('.pdf'));
     }
 
+    // --------------------------------------------------
+    // 🏷️ 動態生成 3 行篩選標籤
+    // --------------------------------------------------
     function generateFilterPills() {
-      const container = document.getElementById('filterPills');
       const keys = [...new Set(hymnsData.map(h => h.key).filter(k => k !== 'N/A'))].sort();
-      const artists = [...new Set(hymnsData.map(h => h.artist).filter(a => a !== '未知機構'))];
+      const artists = [...new Set(hymnsData.map(h => h.artist).filter(a => a !== '未知機構'))].sort();
 
-      let html = `
+      // 第 3 行：快速與收藏
+      const actionContainer = document.getElementById('actionPills');
+      actionContainer.innerHTML = `
         <button class="pill ${currentFilter === 'ALL' ? 'active' : ''}" onclick="setFilter('ALL', this)"><i class="fa-solid fa-border-all"></i> 全部</button>
         <button class="pill ${currentFilter === 'FAV' ? 'active' : ''}" onclick="setFilter('FAV', this)"><i class="fa-solid fa-heart" style="color:#ff3b30;"></i> 已收藏</button>
       `;
 
+      // 第 2 行：Key（調性）
+      const keyContainer = document.getElementById('keyPills');
+      let keyHtml = '';
       keys.forEach(k => {
-        html += `<button class="pill ${currentFilter === 'KEY:' + k ? 'active' : ''}" onclick="setFilter('KEY:${k}', this)">Key: ${k}</button>`;
+        keyHtml += `<button class="pill ${currentFilter === 'KEY:' + k ? 'active' : ''}" onclick="setFilter('KEY:${k}', this)">Key: ${k}</button>`;
       });
+      keyContainer.innerHTML = keyHtml;
 
+      // 第 1 行：音樂機構
+      const artistContainer = document.getElementById('artistPills');
+      let artistHtml = '';
       artists.forEach(a => {
-        html += `<button class="pill ${currentFilter === 'ARTIST:' + a ? 'active' : ''}" onclick="setFilter('ARTIST:${a}', this)">${escapeHtml(a)}</button>`;
+        artistHtml += `<button class="pill ${currentFilter === 'ARTIST:' + a ? 'active' : ''}" onclick="setFilter('ARTIST:${a}', this)">${escapeHtml(a)}</button>`;
       });
-
-      container.innerHTML = html;
+      artistContainer.innerHTML = artistHtml;
     }
 
     function setFilter(filterType, element) {
