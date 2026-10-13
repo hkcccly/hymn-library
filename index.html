@@ -13,6 +13,8 @@
       --card-border: rgba(255, 255, 255, 0.8);
       --accent-color: #0071e3;
       --accent-hover: #0077ed;
+      --secondary-btn-bg: #e8e8ed;
+      --secondary-btn-hover: #dcdce0;
       --text-main: #1d1d1f;
       --text-secondary: #86868b;
       --shadow-soft: 0 8px 30px rgba(0, 0, 0, 0.04);
@@ -67,7 +69,7 @@
       font-weight: 400;
     }
 
-    /* Search Bar Bar Styling */
+    /* Search Bar Styling */
     .search-wrapper {
       position: sticky;
       top: 20px;
@@ -183,21 +185,41 @@
       border-radius: 6px;
     }
 
-    .download-btn {
-      width: 100%;
-      background: var(--accent-color);
-      color: white;
+    /* 按鈕群組雙欄樣式 */
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .action-btn {
+      flex: 1;
       border: none;
-      padding: 10px 16px;
+      padding: 10px 12px;
       border-radius: var(--radius-md);
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 500;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      transition: background 0.2s ease;
+      gap: 6px;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .view-btn {
+      background: var(--secondary-btn-bg);
+      color: var(--text-main);
+    }
+
+    .view-btn:hover {
+      background: var(--secondary-btn-hover);
+    }
+
+    .download-btn {
+      background: var(--accent-color);
+      color: white;
     }
 
     .download-btn:hover {
@@ -306,7 +328,7 @@
       display: none;
     }
 
-    /* Loading state */
+    /* Loading & Empty State */
     .loading-state, .empty-state {
       text-align: center;
       padding: 60px 20px;
@@ -330,7 +352,7 @@
   <div class="container">
     <header>
       <h1>詩歌檢索庫</h1>
-    
+      
     </header>
 
     <div class="search-wrapper">
@@ -361,7 +383,7 @@
       <div class="error-msg" id="errorMsg">密碼錯誤，請再試一次</div>
       <div class="modal-buttons">
         <button class="modal-btn btn-cancel" onclick="closeModal()">取消</button>
-        <button class="modal-btn btn-confirm" onclick="verifyAndDownload()">下載</button>
+        <button class="modal-btn btn-confirm" onclick="verifyAndDownload()">驗證並下載</button>
       </div>
     </div>
   </div>
@@ -392,11 +414,8 @@
         if (!response.ok) throw new Error('無法存取 GitHub 樂譜資料夾');
         
         const files = await response.json();
-        
-        // 過濾只取 .pdf 檔案
         const pdfFiles = files.filter(file => file.name.endsWith('.pdf'));
 
-        // 解析檔名格式：機構_歌名_Key.pdf
         hymnsData = pdfFiles.map((file, index) => {
           const rawName = file.name.replace('.pdf', '');
           const parts = rawName.split('_');
@@ -426,7 +445,7 @@
     }
 
     // --------------------------------------------------
-    // 2. 渲染詩歌卡片列表
+    // 2. 渲染詩歌卡片列表（包含「檢視」與「下載」按鈕）
     // --------------------------------------------------
     function renderHymns(list) {
       const container = document.getElementById('hymnList');
@@ -450,9 +469,16 @@
             <div class="hymn-title">${escapeHtml(item.title)}</div>
             <span class="key-badge">Key: ${escapeHtml(item.key)}</span>
           </div>
-          <button class="download-btn" onclick="openModal('${item.downloadUrl}', '${escapeHtml(item.title)}')">
-            <i class="fa-solid fa-arrow-down-to-line"></i> 下載 PDF
-          </button>
+          <div class="btn-group">
+            <!-- 線上檢視按鈕（直接於新分頁開啟 PDF） -->
+            <button class="action-btn view-btn" onclick="openPreview('${item.downloadUrl}')">
+              <i class="fa-regular fa-eye"></i> 檢視
+            </button>
+            <!-- 下載按鈕（需輸入密碼） -->
+            <button class="action-btn download-btn" onclick="openModal('${item.downloadUrl}', '${escapeHtml(item.title)}', '${item.fileName}')">
+              <i class="fa-solid fa-arrow-down-to-line"></i> 下載
+            </button>
+          </div>
         </div>
       `).join('');
     }
@@ -471,11 +497,18 @@
     });
 
     // --------------------------------------------------
-    // 4. 密碼驗證與下載彈窗 logic
+    // 4. 功能：線上檢視 PDF (預覽)
     // --------------------------------------------------
-    function openModal(url, title) {
+    function openPreview(url) {
+      window.open(url, '_blank');
+    }
+
+    // --------------------------------------------------
+    // 5. 功能：密碼驗證與直接下載 PDF
+    // --------------------------------------------------
+    function openModal(url, title, fileName) {
       selectedPdfUrl = url;
-      selectedFileName = title;
+      selectedFileName = fileName || `${title}.pdf`;
       document.getElementById('modalFileName').innerText = title;
       document.getElementById('passwordInput').value = '';
       document.getElementById('errorMsg').style.display = 'none';
@@ -487,18 +520,32 @@
       document.getElementById('modalOverlay').classList.remove('active');
     }
 
-    function verifyAndDownload() {
+    async function verifyAndDownload() {
       const pwd = document.getElementById('passwordInput').value;
       if (pwd === CONFIG.DOWNLOAD_PASSWORD) {
-        // 密碼正確，開啟 PDF 檔案
-        window.open(selectedPdfUrl, '_blank');
+        // 密碼正確，觸發真正下載（非僅瀏覽器開啟）
+        try {
+          const response = await fetch(selectedPdfUrl);
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = selectedFileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(blobUrl);
+        } catch (err) {
+          // 若 fetch 受到跨網域限制，則備用開啟新分頁
+          window.open(selectedPdfUrl, '_blank');
+        }
         closeModal();
       } else {
         document.getElementById('errorMsg').style.display = 'block';
       }
     }
 
-    // 按 Enter 鍵支援觸發下載
     document.getElementById('passwordInput').addEventListener('keyup', (e) => {
       if (e.key === 'Enter') verifyAndDownload();
     });
