@@ -76,7 +76,6 @@
 
     header { text-align: center; margin-bottom: 24px; }
     header h1 { font-size: 32px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.015em; }
-    header p { color: var(--text-secondary); font-size: 15px; }
 
     .search-wrapper { position: sticky; top: 15px; z-index: 10; margin-bottom: 16px; }
     .search-box {
@@ -89,7 +88,7 @@
     .search-box input { border: none; background: transparent; outline: none; font-size: 16px; width: 100%; color: var(--text-main); }
     .clear-btn { color: var(--text-secondary); font-size: 16px; cursor: pointer; display: none; padding: 2px 6px; }
 
-    /* 🏷️ 三行分類篩選容器 */
+    /* 🏷️ 4行分類篩選容器 (支援多選) */
     .filter-container {
       display: flex;
       flex-direction: column;
@@ -164,6 +163,9 @@
     }
     .card-header-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; padding-right: 28px; }
     .artist-tag { font-size: 11px; font-weight: 600; color: var(--accent-color); text-transform: uppercase; }
+    
+    .card-badges { display: flex; gap: 6px; align-items: center; }
+    .lang-badge { display: inline-flex; background: rgba(52, 199, 89, 0.12); color: #34c759; font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 6px; }
     .key-badge { display: inline-flex; background: rgba(0, 113, 227, 0.12); color: var(--accent-color); font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 6px; }
 
     .fav-btn {
@@ -219,30 +221,30 @@
   <div class="container">
     <header>
       <h1>詩歌檢索庫</h1>
-      
     </header>
 
     <div class="search-wrapper">
       <div class="search-box">
         <i class="fa-solid fa-magnifying-glass search-icon"></i>
-        <input type="text" id="searchInput" placeholder="搜尋歌名、機構、Key...">
+        <input type="text" id="searchInput" placeholder="搜尋歌名、機構、Key、語言...">
         <i class="fa-solid fa-circle-xmark clear-btn" id="clearSearchBtn" onclick="clearSearch()"></i>
       </div>
     </div>
 
-    <!-- 🏷️ 三行分類篩選容器 -->
+    <!-- 🏷️ 4行分類篩選容器（支援多選） -->
     <div class="filter-container">
-      <!-- 第 1 行：音樂機構 -->
       <div class="filter-row-group">
-        <span class="filter-label">機構</span>
-        <div class="filter-pills-scroll" id="artistPills"></div>
+        <span class="filter-label">語言</span>
+        <div class="filter-pills-scroll" id="langPills"></div>
       </div>
-      <!-- 第 2 行：Key 調性 -->
       <div class="filter-row-group">
         <span class="filter-label">調性</span>
         <div class="filter-pills-scroll" id="keyPills"></div>
       </div>
-      <!-- 第 3 行：快速與收藏 -->
+      <div class="filter-row-group">
+        <span class="filter-label">機構</span>
+        <div class="filter-pills-scroll" id="artistPills"></div>
+      </div>
       <div class="filter-row-group">
         <span class="filter-label">快速</span>
         <div class="filter-pills-scroll" id="actionPills"></div>
@@ -250,7 +252,7 @@
     </div>
 
     <div class="status-bar">
-      <span id="countText">正在同步資料...</span>
+      <span id="countText">正在同步 GitHub 與 Google 試算表...</span>
     </div>
 
     <div class="hymn-list" id="hymnList">
@@ -294,6 +296,9 @@
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+    // --------------------------------------------------
+    // ⚙️ 設定區（已填入 hkcccly / hymn-library）
+    // --------------------------------------------------
     const CONFIG = {
       GITHUB_USERNAME: 'hkcccly',   
       GITHUB_REPO: 'hymn-library',             
@@ -304,14 +309,19 @@
 
     let hymnsData = [];
     let favorites = JSON.parse(localStorage.getItem('hymn_favorites') || '[]');
-    let currentFilter = 'ALL';
+
+    // 🎛️ 多選篩選狀態管理
+    let selectedLangs = new Set();
+    let selectedKeys = new Set();
+    let selectedArtists = new Set();
+    let onlyFavorites = false;
+
     let selectedPdfUrl = '';
     let selectedFileName = '';
     let currentAction = 'preview';
     let pdfDoc = null;
     let pageNum = 1;
 
-    // 🔑 智慧名稱清洗函式
     function normalizeTitle(str) {
       if (!str) return '';
       return str.toLowerCase()
@@ -327,16 +337,21 @@
         hymnsData = githubFiles.map((file, index) => {
           const rawName = file.name.replace('.pdf', '');
           const parts = rawName.split('_');
+          
+          const artist = parts[0] || '未知機構';
           const title = parts[1] || rawName;
+          const key = parts[2] ? parts[2].toUpperCase() : 'N/A';
+          const language = parts[3] ? parts[3].trim() : '未分類';
           
           const cleanTitleKey = normalizeTitle(title);
           const stat = sheetStats[cleanTitleKey] || { count: 0, lastDate: '未曾記錄' };
 
           return {
             id: file.name,
-            artist: parts[0] || '未知機構',
+            artist: artist,
             title: title,
-            key: parts[2] ? parts[2].toUpperCase() : 'N/A',
+            key: key,
+            language: language,
             downloadUrl: file.download_url,
             fileName: file.name,
             singCount: stat.count,
@@ -352,7 +367,7 @@
         document.getElementById('hymnList').innerHTML = `
           <div class="empty-state">
             <i class="fa-solid fa-triangle-exclamation" style="font-size:32px; margin-bottom:12px;"></i>
-            <p>資料載入失敗，請確認 Google 試算表已正確發佈並公開。</p>
+            <p>資料載入失敗，請確認 GitHub 設定與 Google 試算表已公開。</p>
           </div>
         `;
         document.getElementById('countText').innerText = '載入失敗';
@@ -373,7 +388,6 @@
             const date = cols[0] ? cols[0].trim().replace(/['"]/g, '') : '';
             if (!date) continue;
 
-            // 從 C 欄（索引 2）開始掃描所有歌名
             for (let j = 2; j < cols.length; j++) {
               const rawTitle = cols[j] ? cols[j].trim().replace(/['"]/g, '') : '';
               if (!rawTitle) continue;
@@ -406,44 +420,63 @@
     }
 
     // --------------------------------------------------
-    // 🏷️ 動態生成 3 行篩選標籤
+    // 🏷️ 動態生成 4 行多選標籤
     // --------------------------------------------------
     function generateFilterPills() {
+      const languages = [...new Set(hymnsData.map(h => h.language))].sort();
       const keys = [...new Set(hymnsData.map(h => h.key).filter(k => k !== 'N/A'))].sort();
       const artists = [...new Set(hymnsData.map(h => h.artist).filter(a => a !== '未知機構'))].sort();
 
-      // 第 3 行：快速與收藏
-      const actionContainer = document.getElementById('actionPills');
-      actionContainer.innerHTML = `
-        <button class="pill ${currentFilter === 'ALL' ? 'active' : ''}" onclick="setFilter('ALL')"><i class="fa-solid fa-border-all"></i> 全部</button>
-        <button class="pill ${currentFilter === 'FAV' ? 'active' : ''}" onclick="setFilter('FAV')"><i class="fa-solid fa-heart" style="color:#ff3b30;"></i> 已收藏</button>
+      // 第 4 行：快速與收藏
+      const allActive = selectedLangs.size === 0 && selectedKeys.size === 0 && selectedArtists.size === 0 && !onlyFavorites;
+      document.getElementById('actionPills').innerHTML = `
+        <button class="pill ${allActive ? 'active' : ''}" onclick="toggleFilter('ALL')"><i class="fa-solid fa-border-all"></i> 全部</button>
+        <button class="pill ${onlyFavorites ? 'active' : ''}" onclick="toggleFilter('FAV')"><i class="fa-solid fa-heart" style="color:#ff3b30;"></i> 已收藏</button>
       `;
 
-      // 第 2 行：Key（調性）
-      const keyContainer = document.getElementById('keyPills');
+      // 第 1 行：語言
+      let langHtml = '';
+      languages.forEach(l => {
+        const isActive = selectedLangs.has(l);
+        langHtml += `<button class="pill ${isActive ? 'active' : ''}" onclick="toggleFilter('LANG', '${escapeHtml(l)}')">${escapeHtml(l)}</button>`;
+      });
+      document.getElementById('langPills').innerHTML = langHtml;
+
+      // 第 2 行：調性
       let keyHtml = '';
       keys.forEach(k => {
-        const filterKey = 'KEY:' + k;
-        keyHtml += `<button class="pill ${currentFilter === filterKey ? 'active' : ''}" onclick="setFilter('${filterKey}')">Key: ${k}</button>`;
+        const isActive = selectedKeys.has(k);
+        keyHtml += `<button class="pill ${isActive ? 'active' : ''}" onclick="toggleFilter('KEY', '${k}')">Key: ${k}</button>`;
       });
-      keyContainer.innerHTML = keyHtml;
+      document.getElementById('keyPills').innerHTML = keyHtml;
 
-      // 第 1 行：音樂機構
-      const artistContainer = document.getElementById('artistPills');
+      // 第 3 行：機構
       let artistHtml = '';
       artists.forEach(a => {
-        const filterArtist = 'ARTIST:' + a;
-        artistHtml += `<button class="pill ${currentFilter === filterArtist ? 'active' : ''}" onclick="setFilter('${filterArtist}')">${escapeHtml(a)}</button>`;
+        const isActive = selectedArtists.has(a);
+        artistHtml += `<button class="pill ${isActive ? 'active' : ''}" onclick="toggleFilter('ARTIST', '${escapeHtml(a)}')">${escapeHtml(a)}</button>`;
       });
-      artistContainer.innerHTML = artistHtml;
+      document.getElementById('artistPills').innerHTML = artistHtml;
     }
 
-    // 🔄 點擊標籤邏輯：再次點擊即取消（切回 ALL）
-    function setFilter(filterType) {
-      if (currentFilter === filterType && filterType !== 'ALL') {
-        currentFilter = 'ALL';
-      } else {
-        currentFilter = filterType;
+    // 🎛️ 多選切換邏輯
+    function toggleFilter(type, value) {
+      if (type === 'ALL') {
+        selectedLangs.clear();
+        selectedKeys.clear();
+        selectedArtists.clear();
+        onlyFavorites = false;
+      } else if (type === 'FAV') {
+        onlyFavorites = !onlyFavorites;
+      } else if (type === 'LANG') {
+        if (selectedLangs.has(value)) selectedLangs.delete(value);
+        else selectedLangs.add(value);
+      } else if (type === 'KEY') {
+        if (selectedKeys.has(value)) selectedKeys.delete(value);
+        else selectedKeys.add(value);
+      } else if (type === 'ARTIST') {
+        if (selectedArtists.has(value)) selectedArtists.delete(value);
+        else selectedArtists.add(value);
       }
       generateFilterPills();
       renderHymns();
@@ -459,18 +492,15 @@
         const matchesQuery = 
           item.title.toLowerCase().includes(query) ||
           item.artist.toLowerCase().includes(query) ||
-          item.key.toLowerCase().includes(query);
+          item.key.toLowerCase().includes(query) ||
+          item.language.toLowerCase().includes(query);
 
-        let matchesFilter = true;
-        if (currentFilter === 'FAV') {
-          matchesFilter = favorites.includes(item.id);
-        } else if (currentFilter.startsWith('KEY:')) {
-          matchesFilter = item.key === currentFilter.replace('KEY:', '');
-        } else if (currentFilter.startsWith('ARTIST:')) {
-          matchesFilter = item.artist === currentFilter.replace('ARTIST:', '');
-        }
+        const matchesLang = selectedLangs.size === 0 || selectedLangs.has(item.language);
+        const matchesKey = selectedKeys.size === 0 || selectedKeys.has(item.key);
+        const matchesArtist = selectedArtists.size === 0 || selectedArtists.has(item.artist);
+        const matchesFav = !onlyFavorites || favorites.includes(item.id);
 
-        return matchesQuery && matchesFilter;
+        return matchesQuery && matchesLang && matchesKey && matchesArtist && matchesFav;
       });
 
       document.getElementById('countText').innerText = `共找到 ${filtered.length} 首詩歌譜`;
@@ -490,7 +520,10 @@
             <div>
               <div class="card-header-row">
                 <span class="artist-tag">${escapeHtml(item.artist)}</span>
-                <span class="key-badge">Key: ${escapeHtml(item.key)}</span>
+                <div class="card-badges">
+                  ${item.language !== '未分類' ? `<span class="lang-badge">${escapeHtml(item.language)}</span>` : ''}
+                  <span class="key-badge">Key: ${escapeHtml(item.key)}</span>
+                </div>
               </div>
               <div class="hymn-title">${escapeHtml(item.title)}</div>
               
@@ -521,13 +554,13 @@
       }
       localStorage.setItem('hymn_favorites', JSON.stringify(favorites));
       
-      if (currentFilter === 'FAV') {
+      const icon = btn.querySelector('i');
+      const isFav = favorites.includes(id);
+      btn.classList.toggle('active', isFav);
+      icon.className = `${isFav ? 'fa-solid' : 'fa-regular'} fa-heart`;
+
+      if (onlyFavorites) {
         renderHymns();
-      } else {
-        const icon = btn.querySelector('i');
-        const isFav = favorites.includes(id);
-        btn.classList.toggle('active', isFav);
-        icon.className = `${isFav ? 'fa-solid' : 'fa-regular'} fa-heart`;
       }
     }
 
