@@ -184,6 +184,42 @@
     .view-btn { background: var(--secondary-btn-bg); color: var(--text-main); }
     .download-btn { background: var(--accent-color); color: white; }
 
+    /* ⬆️ 返回頂部浮動按鈕 */
+    .scroll-top-btn {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      width: 44px;
+      height: 44px;
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+      border-radius: 50%;
+      color: var(--text-main);
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-modal);
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(10px);
+      transition: all 0.3s ease;
+      z-index: 99;
+    }
+    .scroll-top-btn.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .scroll-top-btn:hover {
+      background: var(--accent-color);
+      color: white;
+      border-color: var(--accent-color);
+    }
+
     /* Modal Styling */
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -263,6 +299,11 @@
     </div>
   </div>
 
+  <!-- ⬆️ 返回頂部浮動按鈕 -->
+  <button class="scroll-top-btn" id="scrollTopBtn" onclick="scrollToTop()" title="返回頂部">
+    <i class="fa-solid fa-arrow-up"></i>
+  </button>
+
   <!-- Password Modal -->
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal">
@@ -297,7 +338,7 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
     // --------------------------------------------------
-    // ⚙️ 設定區（已填入 hkcccly / hymn-library）
+    // ⚙️ 設定區
     // --------------------------------------------------
     const CONFIG = {
       GITHUB_USERNAME: 'hkcccly',   
@@ -562,6 +603,23 @@
       if (onlyFavorites) {
         renderHymns();
       }
+    }
+
+    // ⬆️ 捲動監聽與返回頂部函式
+    window.addEventListener('scroll', () => {
+      const btn = document.getElementById('scrollTopBtn');
+      if (window.scrollY > 300) {
+        btn.classList.add('show');
+      } else {
+        btn.classList.remove('show');
+      }
+    });
+
+    function scrollToTop() {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
     }
 
     document.getElementById('searchInput').addEventListener('input', renderHymns);
