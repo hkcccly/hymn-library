@@ -370,7 +370,7 @@
                 .trim();
     }
 
-    // 🔠 調性格式化：首字大階，其餘細階（例如 AB -> Ab, BB -> Bb, C# -> C#）
+    // 🔠 調性格式化：首字大階，其餘細階（例如 AB -> Ab, bb -> Bb, C# -> C#）
     function formatKey(keyStr) {
       if (!keyStr || keyStr === 'N/A') return 'N/A';
       const trimmed = keyStr.trim();
@@ -390,7 +390,7 @@
           const artist = parts[0] || '未知機構';
           const title = parts[1] || rawName;
           const rawKey = parts[2] ? parts[2] : 'N/A';
-          const key = formatKey(rawKey); // 統一格式化調性
+          const key = formatKey(rawKey); // 💡 正確套用調性格式化函式
           const language = file.langFolder || '未分類';
           
           const cleanTitleKey = normalizeTitle(title);
