@@ -377,28 +377,37 @@
       return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
     }
 
-    // 📅 智慧型日期解析（支援 YYYY/MM/DD 與 DD/MM/YYYY）
+    // 📅 極致穩健的日期解析函式（支援數字序列、YYYY/MM/DD、DD/MM/YYYY）
     function parseDateToTime(dateStr) {
       if (!dateStr) return 0;
       const cleanStr = dateStr.trim().replace(/['"]/g, '');
+      if (!cleanStr) return 0;
       
+      // 支援 Excel / Google Sheets 數字序列 (例如 45800)
+      if (/^\d{5}$/.test(cleanStr)) {
+        const excelDate = parseInt(cleanStr, 10);
+        const dateObj = new Date((excelDate - (25567 + 2)) * 86400 * 1000);
+        return dateObj.getTime();
+      }
+
       const parts = cleanStr.split(/[\/\-]/);
       if (parts.length === 3) {
         let p0 = parseInt(parts[0], 10);
         let p1 = parseInt(parts[1], 10) - 1;
         let p2 = parseInt(parts[2], 10);
 
+        if (isNaN(p0) || isNaN(p1) || isNaN(p2)) return 0;
+
         let year, month, day;
-        // 如果第一部分大於 31，代表是 YYYY/MM/DD 格式
         if (p0 > 31) {
           year = p0;
           month = p1;
           day = p2;
         } else {
-          // 否則是 DD/MM/YYYY 格式
           day = p0;
           month = p1;
           year = p2;
+          if (year < 100) year += 2000;
         }
         return new Date(year, month, day).getTime();
       }
@@ -442,7 +451,7 @@
         renderHymns();
 
       } catch (error) {
-        console.error(error);
+        console.error("初始化錯誤:", error);
         document.getElementById('hymnList').innerHTML = `
           <div class="empty-state">
             <i class="fa-solid fa-triangle-exclamation" style="font-size:32px; margin-bottom:12px;"></i>
@@ -456,70 +465,4 @@
     async function fetchGoogleSheetStats(csvUrl) {
       if (!csvUrl) return {};
       try {
-        const response = await fetch(csvUrl);
-        const text = await response.text();
-        const rows = text.split('\n').map(r => r.split(','));
-        const stats = {};
-
-        for (let i = 1; i < rows.length; i++) {
-          const cols = rows[i];
-          if (cols.length >= 1) {
-            const date = cols[0] ? cols[0].trim().replace(/['"]/g, '') : '';
-            if (!date) continue;
-            const currentTime = parseDateToTime(date);
-
-            for (let j = 2; j < cols.length; j++) {
-              const rawTitle = cols[j] ? cols[j].trim().replace(/['"]/g, '') : '';
-              if (!rawTitle) continue;
-
-              const titleKey = normalizeTitle(rawTitle);
-
-              if (!stats[titleKey]) {
-                stats[titleKey] = { count: 0, lastDate: date, timeVal: currentTime };
-              }
-              stats[titleKey].count++;
-              // 💡 比較時間戳記，保留較新的日期
-              if (currentTime > stats[titleKey].timeVal) {
-                stats[titleKey].timeVal = currentTime;
-                stats[titleKey].lastDate = date;
-              }
-            }
-          }
-        }
-        return stats;
-      } catch (e) {
-        console.warn('無法讀取試算表', e);
-        return {};
-      }
-    }
-
-    async function fetchGitHubFilesRecursive(folderPath) {
-      const apiUrl = `https://api.github.com/repos/${CONFIG.GITHUB_USERNAME}/${CONFIG.GITHUB_REPO}/contents/${folderPath}`;
-      const response = await fetch(apiUrl);
-      if (!response.ok) throw new Error('無法存取 GitHub API');
-      const items = await response.json();
-      
-      let allFiles = [];
-
-      for (const item of items) {
-        if (item.type === 'dir') {
-          const subFilesResponse = await fetch(item.url);
-          if (subFilesResponse.ok) {
-            const subItems = await subFilesResponse.json();
-            const pdfs = subItems
-              .filter(f => f.name.endsWith('.pdf'))
-              .map(f => ({ ...f, langFolder: item.name }));
-            allFiles = allFiles.concat(pdfs);
-          }
-        } else if (item.type === 'file' && item.name.endsWith('.pdf')) {
-          allFiles.push({ ...item, langFolder: '未分類' });
-        }
-      }
-
-      return allFiles;
-    }
-
-    function generateFilterPills() {
-      const languages = [...new Set(hymnsData.map(h => h.language))].sort();
-      const keys = [...new Set(hymnsData.map(h => h.key).filter(k => k !== 'N/A'))].sort();
-      const artists = [...new Set(hymnsData.map(h => h.artist).
+        const response = await fetch(csvUrl
