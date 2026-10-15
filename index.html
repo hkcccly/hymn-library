@@ -88,7 +88,7 @@
     .search-box input { border: none; background: transparent; outline: none; font-size: 16px; width: 100%; color: var(--text-main); }
     .clear-btn { color: var(--text-secondary); font-size: 16px; cursor: pointer; display: none; padding: 2px 6px; }
 
-    /* 🏷️ 4行分類篩選容器 (支援多選) */
+    /* 🏷️ 分類篩選容器 */
     .filter-container {
       display: flex;
       flex-direction: column;
@@ -262,7 +262,7 @@
     <div class="search-wrapper">
       <div class="search-box">
         <i class="fa-solid fa-magnifying-glass search-icon"></i>
-        <input type="text" id="searchInput" placeholder="搜尋歌名, 機構, Key, 粵語或國語...">
+        <input type="text" id="searchInput" placeholder="搜尋歌名、機構、Key、粵語或國語...">
         <i class="fa-solid fa-circle-xmark clear-btn" id="clearSearchBtn" onclick="clearSearch()"></i>
       </div>
     </div>
@@ -351,6 +351,7 @@
     let hymnsData = [];
     let favorites = JSON.parse(localStorage.getItem('hymn_favorites') || '[]');
 
+    // 🎛️ 多選篩選狀態管理
     let selectedLangs = new Set();
     let selectedKeys = new Set();
     let selectedArtists = new Set();
@@ -369,28 +370,18 @@
                 .trim();
     }
 
-    function formatKey(keyStr) {
-      if (!keyStr || keyStr === 'N/A') return 'N/A';
-      const trimmed = keyStr.trim();
-      if (trimmed.length === 0) return 'N/A';
-      return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
-    }
-
     async function initApp() {
       try {
         const sheetStats = await fetchGoogleSheetStats(CONFIG.GOOGLE_SHEET_CSV_URL);
         const githubFiles = await fetchGitHubFilesRecursive(CONFIG.PDF_FOLDER);
 
-        console.log("從 GitHub 載入的檔案:", githubFiles);
-
         hymnsData = githubFiles.map(file => {
-          const rawName = file.name.replace(/\.pdf$/i, ''); // 支援大小寫 .pdf / .PDF
+          const rawName = file.name.replace('.pdf', '');
           const parts = rawName.split('_');
           
           const artist = parts[0] || '未知機構';
           const title = parts[1] || rawName;
-          const rawKey = parts[2] ? parts[2] : 'N/A';
-          const key = formatKey(rawKey);
+          const key = parts[2] ? parts[2].toUpperCase() : 'N/A';
           const language = file.langFolder || '未分類';
           
           const cleanTitleKey = normalizeTitle(title);
@@ -413,7 +404,7 @@
         renderHymns();
 
       } catch (error) {
-        console.error("初始化錯誤:", error);
+        console.error(error);
         document.getElementById('hymnList').innerHTML = `
           <div class="empty-state">
             <i class="fa-solid fa-triangle-exclamation" style="font-size:32px; margin-bottom:12px;"></i>
@@ -461,6 +452,7 @@
       }
     }
 
+    // 🔍 遞迴掃描 sheets 資料夾下的所有子資料夾 (粵語/國語等)
     async function fetchGitHubFilesRecursive(folderPath) {
       const apiUrl = `https://api.github.com/repos/${CONFIG.GITHUB_USERNAME}/${CONFIG.GITHUB_REPO}/contents/${folderPath}`;
       const response = await fetch(apiUrl);
@@ -471,16 +463,16 @@
 
       for (const item of items) {
         if (item.type === 'dir') {
+          // 讀取語言子資料夾內的檔案
           const subFilesResponse = await fetch(item.url);
           if (subFilesResponse.ok) {
             const subItems = await subFilesResponse.json();
-            // 💡 改為不分大小寫檢查 .pdf / .PDF
             const pdfs = subItems
-              .filter(f => f.name.toLowerCase().endsWith('.pdf'))
+              .filter(f => f.name.endsWith('.pdf'))
               .map(f => ({ ...f, langFolder: item.name }));
             allFiles = allFiles.concat(pdfs);
           }
-        } else if (item.type === 'file' && item.name.toLowerCase().endsWith('.pdf')) {
+        } else if (item.type === 'file' && item.name.endsWith('.pdf')) {
           allFiles.push({ ...item, langFolder: '未分類' });
         }
       }
@@ -488,17 +480,22 @@
       return allFiles;
     }
 
+    // --------------------------------------------------
+    // 🏷️ 動態生成 4 行多選標籤
+    // --------------------------------------------------
     function generateFilterPills() {
       const languages = [...new Set(hymnsData.map(h => h.language))].sort();
       const keys = [...new Set(hymnsData.map(h => h.key).filter(k => k !== 'N/A'))].sort();
       const artists = [...new Set(hymnsData.map(h => h.artist).filter(a => a !== '未知機構'))].sort();
 
+      // 第 4 行：快速與收藏
       const allActive = selectedLangs.size === 0 && selectedKeys.size === 0 && selectedArtists.size === 0 && !onlyFavorites;
       document.getElementById('actionPills').innerHTML = `
         <button class="pill ${allActive ? 'active' : ''}" onclick="toggleFilter('ALL')"><i class="fa-solid fa-border-all"></i> 全部</button>
         <button class="pill ${onlyFavorites ? 'active' : ''}" onclick="toggleFilter('FAV')"><i class="fa-solid fa-heart" style="color:#ff3b30;"></i> 已收藏</button>
       `;
 
+      // 第 1 行：語言
       let langHtml = '';
       languages.forEach(l => {
         const isActive = selectedLangs.has(l);
@@ -506,6 +503,7 @@
       });
       document.getElementById('langPills').innerHTML = langHtml;
 
+      // 第 2 行：調性
       let keyHtml = '';
       keys.forEach(k => {
         const isActive = selectedKeys.has(k);
@@ -513,6 +511,7 @@
       });
       document.getElementById('keyPills').innerHTML = keyHtml;
 
+      // 第 3 行：機構
       let artistHtml = '';
       artists.forEach(a => {
         const isActive = selectedArtists.has(a);
@@ -521,6 +520,7 @@
       document.getElementById('artistPills').innerHTML = artistHtml;
     }
 
+    // 🎛️ 多選切換邏輯
     function toggleFilter(type, value) {
       if (type === 'ALL') {
         selectedLangs.clear();
@@ -550,6 +550,7 @@
       document.getElementById('clearSearchBtn').style.display = query ? 'block' : 'none';
 
       let filtered = hymnsData.filter(item => {
+        // 🔍 全能搜尋列：同時比對 歌名、機構、Key、語言
         const matchesQuery = 
           item.title.toLowerCase().includes(query) ||
           item.artist.toLowerCase().includes(query) ||
@@ -625,6 +626,7 @@
       }
     }
 
+    // ⬆️ 捲動監聽與返回頂部函式
     window.addEventListener('scroll', () => {
       const btn = document.getElementById('scrollTopBtn');
       if (window.scrollY > 300) {
