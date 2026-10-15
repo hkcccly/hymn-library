@@ -262,12 +262,12 @@
     <div class="search-wrapper">
       <div class="search-box">
         <i class="fa-solid fa-magnifying-glass search-icon"></i>
-        <input type="text" id="searchInput" placeholder="搜尋歌名、機構、Key、語言...">
+        <input type="text" id="searchInput" placeholder="搜尋歌名、機構、Key、粵語或國語...">
         <i class="fa-solid fa-circle-xmark clear-btn" id="clearSearchBtn" onclick="clearSearch()"></i>
       </div>
     </div>
 
-    <!-- 🏷️ 4行分類篩選容器（支援多選） -->
+    <!-- 🏷️ 4行分類篩選容器 (支援多選) -->
     <div class="filter-container">
       <div class="filter-row-group">
         <span class="filter-label">語言</span>
@@ -370,25 +370,34 @@
                 .trim();
     }
 
+    // 🔠 調性格式化：首字大寫，其餘小寫 (例如 AB -> Ab, BB -> Bb, c# -> C# 等)
+    function formatKey(keyStr) {
+      if (!keyStr || keyStr === 'N/A') return 'N/A';
+      const trimmed = keyStr.trim();
+      if (trimmed.length === 0) return 'N/A';
+      return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+    }
+
     async function initApp() {
       try {
         const sheetStats = await fetchGoogleSheetStats(CONFIG.GOOGLE_SHEET_CSV_URL);
-        const githubFiles = await fetchGitHubFiles();
+        const githubFiles = await fetchGitHubFilesRecursive(CONFIG.PDF_FOLDER);
 
-        hymnsData = githubFiles.map((file, index) => {
+        hymnsData = githubFiles.map(file => {
           const rawName = file.name.replace('.pdf', '');
           const parts = rawName.split('_');
           
           const artist = parts[0] || '未知機構';
           const title = parts[1] || rawName;
-          const key = parts[2] ? parts[2].toUpperCase() : 'N/A';
-          const language = parts[3] ? parts[3].trim() : '未分類';
+          const rawKey = parts[2] ? parts[2] : 'N/A';
+          const key = formatKey(rawKey); // 套用格式化
+          const language = file.langFolder || '未分類';
           
           const cleanTitleKey = normalizeTitle(title);
           const stat = sheetStats[cleanTitleKey] || { count: 0, lastDate: '未曾記錄' };
 
           return {
-            id: file.name,
+            id: file.path,
             artist: artist,
             title: title,
             key: key,
@@ -452,12 +461,30 @@
       }
     }
 
-    async function fetchGitHubFiles() {
-      const apiUrl = `https://api.github.com/repos/${CONFIG.GITHUB_USERNAME}/${CONFIG.GITHUB_REPO}/contents/${CONFIG.PDF_FOLDER}`;
+    async function fetchGitHubFilesRecursive(folderPath) {
+      const apiUrl = `https://api.github.com/repos/${CONFIG.GITHUB_USERNAME}/${CONFIG.GITHUB_REPO}/contents/${folderPath}`;
       const response = await fetch(apiUrl);
       if (!response.ok) throw new Error('無法存取 GitHub API');
-      const files = await response.json();
-      return files.filter(file => file.name.endsWith('.pdf'));
+      const items = await response.json();
+      
+      let allFiles = [];
+
+      for (const item of items) {
+        if (item.type === 'dir') {
+          const subFilesResponse = await fetch(item.url);
+          if (subFilesResponse.ok) {
+            const subItems = await subFilesResponse.json();
+            const pdfs = subItems
+              .filter(f => f.name.endsWith('.pdf'))
+              .map(f => ({ ...f, langFolder: item.name }));
+            allFiles = allFiles.concat(pdfs);
+          }
+        } else if (item.type === 'file' && item.name.endsWith('.pdf')) {
+          allFiles.push({ ...item, langFolder: '未分類' });
+        }
+      }
+
+      return allFiles;
     }
 
     // --------------------------------------------------
