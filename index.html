@@ -88,31 +88,39 @@
     .search-box input { border: none; background: transparent; outline: none; font-size: 16px; width: 100%; color: var(--text-main); }
     .clear-btn { color: var(--text-secondary); font-size: 16px; cursor: pointer; display: none; padding: 2px 6px; }
 
-    /* 🏷️ 分類篩選容器 */
+    /* 🏷️ 分類篩選容器 (支援自動換行) */
     .filter-container {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
       margin-bottom: 20px;
       background: var(--card-bg);
       backdrop-filter: blur(20px);
       border: 1px solid var(--card-border);
       border-radius: 16px;
-      padding: 14px 16px;
+      padding: 16px;
       box-shadow: var(--shadow-soft);
     }
 
     .filter-row-group {
       display: flex;
-      align-items: center;
-      gap: 12px;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    @media (min-width: 600px) {
+      .filter-row-group {
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+      }
     }
 
     .filter-label {
       font-size: 11px;
       font-weight: 600;
       color: var(--text-secondary);
-      width: 36px;
+      width: 42px;
       flex-shrink: 0;
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -120,15 +128,10 @@
 
     .filter-pills-scroll {
       display: flex;
-      gap: 8px;
-      overflow-x: auto;
-      padding-bottom: 2px;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
+      flex-wrap: wrap;
+      gap: 6px;
       flex: 1;
     }
-
-    .filter-pills-scroll::-webkit-scrollbar { display: none; }
 
     .pill {
       background: var(--pill-bg);
@@ -138,7 +141,6 @@
       border-radius: 18px;
       font-size: 12px;
       font-weight: 500;
-      white-space: nowrap;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
@@ -267,7 +269,7 @@
       </div>
     </div>
 
-    <!-- 🏷️ 4行分類篩選容器 (支援多選) -->
+    <!-- 🏷️ 4行分類篩選容器 -->
     <div class="filter-container">
       <div class="filter-row-group">
         <span class="filter-label">語言</span>
@@ -383,7 +385,6 @@
       const cleanStr = dateStr.trim().replace(/['"]/g, '');
       if (!cleanStr || cleanStr === '崇拜日期' || cleanStr === '日期') return 0;
       
-      // Excel 序號
       if (/^\d{5}$/.test(cleanStr)) {
         const excelDate = parseInt(cleanStr, 10);
         const dateObj = new Date((excelDate - (25567 + 2)) * 86400 * 1000);
@@ -508,7 +509,6 @@
             
             const currentTime = parseDateToTime(date);
 
-            // 根據試算表結構：第0欄是日期，第1欄是領唱姓名，第2欄開始是第1首、第2首等歌名
             for (let j = 2; j < cols.length; j++) {
               const rawTitle = cols[j] ? cols[j].trim().replace(/['"]/g, '') : '';
               if (!rawTitle) continue;
@@ -520,7 +520,6 @@
               }
               stats[titleKey].count++;
               
-              // 💡 確保能準確比對出最新日期並更新
               if (currentTime >= stats[titleKey].timeVal) {
                 stats[titleKey].timeVal = currentTime;
                 stats[titleKey].lastDate = date;
@@ -562,7 +561,13 @@
     }
 
     function generateFilterPills() {
-      const languages = [...new Set(hymnsData.map(h => h.language))].sort();
+      // 💡 修正語言排序：強制讓「粵語」排在最前面，其餘（如國語等）按字母排序
+      const languages = [...new Set(hymnsData.map(h => h.language))].sort((a, b) => {
+        if (a === '粵語') return -1;
+        if (b === '粵語') return 1;
+        return a.localeCompare(b);
+      });
+
       const keys = [...new Set(hymnsData.map(h => h.key).filter(k => k !== 'N/A'))].sort();
       const artists = [...new Set(hymnsData.map(h => h.artist).filter(a => a !== '未知機構'))].sort();
 
